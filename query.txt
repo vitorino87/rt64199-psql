@@ -1,0 +1,15 @@
+select regexp_replace((texto), '<.+?>', '', 'g') titulo, pd.numero,pd.ano, string_agg(distinct(cp.nome),', ') professores from protocolo.documento pd
+left join protocolo.autenticador_documento pad on pad.id_documento = pd.iddocumento
+left join rh.servidor rhs on rhs.id_servidor = pad.id_autenticador
+left join comum.pessoa cp on cp.id_pessoa = rhs.id_pessoa
+where texto is not null and texto ilike '%ANÁLISE DO PROFESSOR%' and (datacadastro between ':data_inicio' and ':data_fim')
+ group by pd.texto,pd.numero,pd.ano order by pd.numero desc
+ 
+ 
+select regexp_replace((texto), '<.+?>', '', 'g') titulo, pd.numero,pd.ano, string_agg(distinct(cp.nome),', ') professores from protocolo.documento pd
+left join protocolo.autenticador_documento pad on pad.id_documento = pd.iddocumento
+left join rh.servidor rhs on rhs.id_servidor = pad.id_autenticador
+left join comum.pessoa cp on cp.id_pessoa = rhs.id_pessoa
+where texto is not null and texto ilike '%ANÁLISE DO PROFESSOR%' and (datacadastro between '01/01/2020' and '19/11/2020') and pd.iddocumento not in (select id_documento from protocolo.autenticador_documento where data_autenticacao is null) group by pd.texto,pd.numero,pd.ano order by numero desc
+
+
