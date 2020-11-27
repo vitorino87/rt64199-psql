@@ -2,14 +2,138 @@ select regexp_replace((texto), '<.+?>', '', 'g') titulo, pd.numero,pd.ano, strin
 left join protocolo.autenticador_documento pad on pad.id_documento = pd.iddocumento
 left join rh.servidor rhs on rhs.id_servidor = pad.id_autenticador
 left join comum.pessoa cp on cp.id_pessoa = rhs.id_pessoa
-where texto is not null and texto ilike '%ANÁLISE DO PROFESSOR%' and (datacadastro between ':data_inicio' and ':data_fim')
- group by pd.texto,pd.numero,pd.ano order by pd.numero desc
- 
- 
-select regexp_replace((texto), '<.+?>', '', 'g') titulo, pd.numero,pd.ano, string_agg(distinct(cp.nome),', ') professores from protocolo.documento pd
+where texto is not null and texto ilike '%ANÁLISE DO PROFESSOR%' and (datacadastro between '01/01/2020' and '19/11/2020') and pd.iddocumento not in (select id_documento from protocolo.autenticador_documento where data_autenticacao is null) group by pd.texto,pd.numero,pd.ano order by numero desc
+
+select regexp_replace((texto), '<.+?>', '', 'g') titulo, pd.numero,pd.ano, distinct(cp.nome) professores from protocolo.documento pd
 left join protocolo.autenticador_documento pad on pad.id_documento = pd.iddocumento
 left join rh.servidor rhs on rhs.id_servidor = pad.id_autenticador
 left join comum.pessoa cp on cp.id_pessoa = rhs.id_pessoa
-where texto is not null and texto ilike '%ANÁLISE DO PROFESSOR%' and (datacadastro between '01/01/2020' and '19/11/2020') and pd.iddocumento not in (select id_documento from protocolo.autenticador_documento where data_autenticacao is null) group by pd.texto,pd.numero,pd.ano order by numero desc
+where texto is not null and texto ilike '%ANÁLISE DO PROFESSOR%' and (datacadastro between ':data_inicio' and ':data_fim')
+ group by pd.texto,pd.numero,pd.ano order by pd.numero desc
+
+select regexp_replace((texto), '<.+?>', '', 'g') titulo, pd.numero,pd.ano, cp.nome professor, coalesce(cast(pad.data_autenticacao as varchar),'nao assinado') data_assinatura from protocolo.documento pd
+left join protocolo.autenticador_documento pad on pad.id_documento = pd.iddocumento
+left join rh.servidor rhs on rhs.id_servidor = pad.id_autenticador
+left join comum.pessoa cp on cp.id_pessoa = rhs.id_pessoa
+where texto is not null and texto ilike '%ANÁLISE DO PROFESSOR%' and (datacadastro between '01/01/2020'  and '19/11/2020')
+ group by pd.texto,pd.numero,pd.ano, cp.nome,pad.data_autenticacao order by pd.numero desc
+
+[#assing maxItens = resultados?size]
+[#assing item = 0]
+ 
+[#function getAssinados x]
+	[#local a = " "]
+	[#local cont=0]
+	[#local b = x?number]
+	[#list resultados as res]
+		[#if b == 1] 
+			[#if res.data_assinatura != "nao assinado"]
+				[#local a = a + res.professor]
+			[/#if]
+		[/#if]
+	[/#list]
+	[#return a]
+[/#function]
+
+[#assing item = item + 1]
 
 
+
+
+		[#else]
+			[#if res.data_autenticacao == "nao assinado"]
+				[#if cont != 0]
+					[#local a = a + ", "]
+				[/#if]
+				[#local a = a + res.professor]
+				[#local cont = 1]			
+			[/#if]	
+		[/#if]
+	[/#list]
+	[#return a]
+[/#function]
+
+select regexp_replace((texto), '<.+?>', '', 'g') titulo, string_agg(distinct(cast(pd.numero as text)),', ') numero, string_agg(distinct(cast(pd.ano as text)),', ') ano, string_agg(distinct(cp.nome),'!!') professor, string_agg(coalesce(cast(to_char(pad.data_autenticacao, U&'DD/MM/YYYY HH24\003AMI\003ASS') as text),'não assinado'), '!!') data_assinatura from protocolo.documento pd
+left join protocolo.autenticador_documento pad on pad.id_documento = pd.iddocumento
+left join rh.servidor rhs on rhs.id_servidor = pad.id_autenticador
+left join comum.pessoa cp on cp.id_pessoa = rhs.id_pessoa
+where texto is not null and texto ilike '%ANÁLISE DO PROFESSOR%' and (pad.data_autenticacao between '01/01/2020'  and '19/11/2020')
+and rhs.id_categoria=1
+group by pd.texto,pd.numero,pd.ano order by pd.ano,pd.numero desc
+
+select regexp_replace((texto), '<.+?>', '', 'g') titulo, string_agg(distinct(cast(pd.numero as text)),', ') numero, string_agg(distinct(cast(pd.ano as text)),', ') ano, string_agg(distinct(cp.nome),'!!') professor, string_agg(coalesce(cast(to_char(pad.data_autenticacao, U&'DD/MM/YYYY HH24\003AMI\003ASS') as text),'não assinado'), '!!') data_assinatura from protocolo.documento pd
+left join protocolo.autenticador_documento pad on pad.id_documento = pd.iddocumento
+left join rh.servidor rhs on rhs.id_servidor = pad.id_autenticador
+left join comum.pessoa cp on cp.id_pessoa = rhs.id_pessoa
+where texto is not null and texto ilike '%ANÁLISE DO PROFESSOR%'
+and rhs.id_categoria=1 and pad.data_inativacao is null
+group by pd.texto,pd.numero,pd.ano 
+having max(pad.data_autenticacao) between '01/11/2020' and '25/11/2020'
+order by pd.ano,pd.numero desc
+
+ 
+[#assign maxItens = resultados?size]
+[#assign item = 0]
+
+${resultados.titulo}
+nº documento: ${resultados.numero}
+Ano: ${resultados.ano}
+Professores Assinantes: ${getAssinados(item)}
+[#function getAssinados x]
+	[#list resultados as res]
+		[#if res?index == x]
+			[#local temp1 = res.professor]
+			[#local temp2 = res.data_assinatura]
+			[#local temp3 = temp1?split("!!")]
+			[#local temp4 = temp2?split("!!")]
+			[#local cont=0]
+			[#local texto=""]
+			[#list temp3 as res]
+				[#if cont==0]
+					[#local texto = res + " (" + temp4[cont] + ")"]
+				[#else]
+					[#local texto = texto + ", "+ res + " (" + temp4[cont] +")"]
+				[/#if]				
+				[#local cont++]
+			[/#list]
+			[#return texto]		
+		[/#if]
+	[/#list]
+[/#function]
+
+[#assign item++]
+
+ @removeLines
+
+select regexp_replace((texto), '<.+?>', '', 'g') titulo, string_agg(distinct(cast(pd.numero as text)),', ') numero, string_agg(distinct(cast(pd.ano as text)),', ') ano, string_agg(concat(cp.nome,' (',coalesce(cast(to_char(pad.data_autenticacao, 'DD/MM/YYYY HH24:MI:SS') as text),'não assinado'),')'),'!!') professor --, string_agg(coalesce(cast(to_char(pad.data_autenticacao, 'DD/MM/YYYY HH24:MI:SS') as text),'não assinado'), '!!') data_assinatura 
+from protocolo.documento pd
+left join protocolo.autenticador_documento pad on pad.id_documento = pd.iddocumento
+left join rh.servidor rhs on rhs.id_servidor = pad.id_autenticador
+left join comum.pessoa cp on cp.id_pessoa = rhs.id_pessoa
+where texto is not null and texto ilike '%ANÁLISE DO PROFESSOR%'
+and rhs.id_categoria=1 and pad.data_inativacao is null
+group by pd.texto,pd.numero,pd.ano
+having max(pad.data_autenticacao) between '01/10/2020' and '25/11/2020'
+order by pd.ano,pd.numero desc
+
+[#function getAssinados x]
+	[#list resultados as res]
+		[#if res?index == x]
+			[#local temp1 = res.professor]			
+			[#local temp3 = temp1?split("!!")]
+			[#local cont=0]
+			[#local texto=""]
+			[#list temp3 as res]
+				[#if cont==0]
+					[#local texto = res]
+				[#else]
+					[#local texto = texto + ", "+ res]
+				[/#if]				
+				[#local cont++]
+			[/#list]
+			[#return texto]		
+		[/#if]
+	[/#list]
+[/#function]
+ 
+ 
